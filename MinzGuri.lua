@@ -41,8 +41,6 @@ end
 
 -- ========== GLOBAL CONFIG ==========
 getgenv().MG = {
-    Fly = false,
-    FlySpeed = 50,
     InfJump = false,
     Noclip = false,
     WalkSpeed = 16,

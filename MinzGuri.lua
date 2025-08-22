@@ -1,4 +1,3 @@
--- (xoá viền cột trái + thêm tab Webhook)
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -69,10 +68,8 @@ local ToggleButton = Instance.new("ImageButton")
 ToggleButton.Name = "MG_Toggle"
 ToggleButton.Size = UDim2.new(0,50,0,50)
 ToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(255,105,180)
+ToggleButton.BackgroundTransparency = 1
 ToggleButton.Image = "rbxassetid://119357620502851"
-ToggleButton.ImageRectOffset = Vector2.new(764,44)
-ToggleButton.ImageRectSize = Vector2.new(36,36)
 ToggleButton.Parent = ScreenGui
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0,12)
 
@@ -149,7 +146,7 @@ local Tabs = {
     {Name="Farm", Icon="🌾"},
     {Name="Performance", Icon="⚡"},
     {Name="Ui", Icon="🖥️"},
-    {Name="Webhook", Icon="🌐"}, -- thêm tab Webhook
+    {Name="Webhook", Icon="🌐"},
 }
 
 local TabList = Instance.new("UIListLayout", LeftCol)
@@ -166,10 +163,8 @@ for _,tab in ipairs(Tabs) do
     Btn.Text = tab.Icon.." "..tab.Name
     Btn.Font = Enum.Font.GothamBold
     Btn.TextSize = 16
-    Btn.TextColor3 = Color3.fromRGB(255,255,255) -- chữ trắng
+    Btn.TextColor3 = Color3.fromRGB(255,255,255)
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0,8)
-
-    -- ❌ Không còn UIStroke (xoá viền)
 
     local Content = Instance.new("Frame", RightCol)
     Content.Size = UDim2.new(1,-20,1,-20)

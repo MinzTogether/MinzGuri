@@ -1,647 +1,253 @@
--- MinzyGuri Hub - Rayfield UI (Delta-friendly)
--- Full UI theo yêu cầu + core: Speed/Jump/Noclip/Fly + Auto Collect (lọc)
--- by MinzyGuri
-
--- ========== LIB ==========
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
-local function Notify(t, c, d)
-    Rayfield:Notify({ Title = t or "MinzyGuri", Content = c or "", Duration = d or 2 })
-end
-
--- ========== STATE / UTILS ==========
+-- (xoá viền cột trái + thêm tab Webhook)
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
-local function Humanoid()
-    local ch = LocalPlayer.Character
-    if not ch then return nil end
-    return ch:FindFirstChildOfClass("Humanoid")
+-- cleanup
+if CoreGui:FindFirstChild("MinzyGuriUI") then
+    CoreGui.MinzyGuriUI:Destroy()
 end
 
-local function HRP()
-    local ch = LocalPlayer.Character
-    if not ch then return nil end
-    return ch:FindFirstChild("HumanoidRootPart")
-end
+-- config
+local UI_W, UI_H = 600, 400
+local CENTER_POS = UDim2.new(0.5, -UI_W/2, 0.5, -UI_H/2)
+local TWEEN_TIME = 0.28
 
-local function safeTP(cf)
-    local p = HRP()
-    if p and cf then p.CFrame = cf end
-end
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MinzyGuriUI"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Clamp helper
-local function clamp(n, a, b)
-    if n < a then return a end
-    if n > b then return b end
-    return n
-end
+-- Main UI
+local MainUI = Instance.new("Frame")
+MainUI.Name = "MG_Main"
+MainUI.Size = UDim2.new(0, UI_W, 0, UI_H)
+MainUI.Position = CENTER_POS
+MainUI.BackgroundColor3 = Color3.fromRGB(255,192,203)
+MainUI.BackgroundTransparency = 0.3
+MainUI.BorderSizePixel = 0
+MainUI.Parent = ScreenGui
+Instance.new("UICorner", MainUI).CornerRadius = UDim.new(0,12)
+local UIStroke = Instance.new("UIStroke", MainUI)
+UIStroke.Thickness = 2
+UIStroke.Color = Color3.fromRGB(255,105,180)
 
--- ========== GLOBAL CONFIG ==========
-getgenv().MG = {
-    InfJump = false,
-    Noclip = false,
-    WalkSpeed = 16,
+-- Header
+local Header = Instance.new("Frame", MainUI)
+Header.Size = UDim2.new(1, 0, 0, 36)
+Header.Position = UDim2.new(0,0,0,0)
+Header.BackgroundColor3 = Color3.fromRGB(255,105,180)
+Header.BorderSizePixel = 0
+Header.Active = true
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0,10)
 
-    PlantMode = "Random", -- "Random" | "At Player"
-    AutoPlant = false,
+local HeaderTitle = Instance.new("TextLabel", Header)
+HeaderTitle.Size = UDim2.new(1, -80, 1, 0)
+HeaderTitle.Position = UDim2.new(0, 12, 0, 0)
+HeaderTitle.BackgroundTransparency = 1
+HeaderTitle.Text = "MinzGuri"
+HeaderTitle.Font = Enum.Font.GothamBold
+HeaderTitle.TextSize = 16
+HeaderTitle.TextColor3 = Color3.fromRGB(255,255,255)
+HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-    AutoCollect = false,
-    CollectFilter = {
-        FruitSearch = "",
-        MutationSearch = "",
-    },
+-- Close Btn
+local CloseBtn = Instance.new("TextButton", Header)
+CloseBtn.Size = UDim2.new(0,40,0,28)
+CloseBtn.Position = UDim2.new(1, -45, 0.5, -14)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+CloseBtn.Text = "X"
+CloseBtn.TextSize = 18
+CloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0,6)
 
-    -- Event
-    Beanstalk = {
-        AutoHarvestRequired = false,
-        AutoSubmitAll = false,
-        AutoCollectEventItems = false,
-    },
-    Cooking = {
-        AutoCook = false,
-        AutoTakeFood = false,
-        Slots = {"","","","",""}, -- 5 slots
-    },
+-- Toggle button
+local ToggleButton = Instance.new("ImageButton")
+ToggleButton.Name = "MG_Toggle"
+ToggleButton.Size = UDim2.new(0,50,0,50)
+ToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255,105,180)
+ToggleButton.Image = "rbxassetid://3926305904"
+ToggleButton.ImageRectOffset = Vector2.new(764,44)
+ToggleButton.ImageRectSize = Vector2.new(36,36)
+ToggleButton.Parent = ScreenGui
+Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0,12)
 
-    -- Mutation
-    MutationActivateMachine = false, -- via Button
-    MutationSubmitHeldPet = false,   -- via Button
+-- Confirm Box
+local ConfirmBox = Instance.new("Frame", ScreenGui)
+ConfirmBox.Size = UDim2.new(0,300,0,150)
+ConfirmBox.Position = UDim2.new(0.5, -150, 0.5, -75)
+ConfirmBox.BackgroundColor3 = Color3.fromRGB(173,216,230)
+ConfirmBox.Visible = false
+Instance.new("UICorner", ConfirmBox).CornerRadius = UDim.new(0,12)
+local CStroke = Instance.new("UIStroke", ConfirmBox)
+CStroke.Color = Color3.fromRGB(0,0,139)
 
-    -- Craft
-    Craft = {
-        GearSelected = "",
-        SeedSelected = "",
-        AutoCraftGear = false,
-        AutoCraftSeed = false
-    },
+local ConfirmText = Instance.new("TextLabel", ConfirmBox)
+ConfirmText.Size = UDim2.new(1,-20,0,60)
+ConfirmText.Position = UDim2.new(0,10,0,10)
+ConfirmText.BackgroundTransparency = 1
+ConfirmText.Text = "Bạn có muốn tắt script không?"
+ConfirmText.Font = Enum.Font.GothamBold
+ConfirmText.TextSize = 18
+ConfirmText.TextColor3 = Color3.fromRGB(255,255,255)
 
-    -- Pet
-    Pet = {
-        EggSelected = "",
-        AutoPlaceEgg = false,
-        AutoHatch = false,
-        BoostPetSelected = "",
-        BoostItemSelected = "",
-        AutoApplyBoost = false,
-    },
+local YesBtn = Instance.new("TextButton", ConfirmBox)
+YesBtn.Size = UDim2.new(0.4,0,0,40)
+YesBtn.Position = UDim2.new(0.05,0,0.6,0)
+YesBtn.BackgroundColor3 = Color3.fromRGB(144,238,144)
+YesBtn.Text = "Có"
+YesBtn.Font = Enum.Font.GothamBold
+YesBtn.TextSize = 18
+YesBtn.TextColor3 = Color3.fromRGB(255,255,255)
+Instance.new("UICorner", YesBtn).CornerRadius = UDim.new(0,8)
 
-    -- Shop
-    Shop = {
-        SeedSelected = "",
-        AutoBuySeedSelected = false,
-        AutoBuyAllSeed = false,
+local NoBtn = Instance.new("TextButton", ConfirmBox)
+NoBtn.Size = UDim2.new(0.4,0,0,40)
+NoBtn.Position = UDim2.new(0.55,0,0.6,0)
+NoBtn.BackgroundColor3 = Color3.fromRGB(255,182,193)
+NoBtn.Text = "Không"
+NoBtn.Font = Enum.Font.GothamBold
+NoBtn.TextSize = 18
+NoBtn.TextColor3 = Color3.fromRGB(255,255,255)
+Instance.new("UICorner", NoBtn).CornerRadius = UDim.new(0,8)
 
-        GearSelected = "",
-        AutoBuyGearSelected = false,
-        AutoBuyAllGear = false,
+CloseBtn.MouseButton1Click:Connect(function()
+    ConfirmBox.Visible = true
+end)
+YesBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+NoBtn.MouseButton1Click:Connect(function()
+    ConfirmBox.Visible = false
+end)
 
-        EggSelected = "",
-        AutoBuyEggSelected = false,
-        AutoBuyAllEgg = false,
+-- Main Layout
+local LeftCol = Instance.new("ScrollingFrame", MainUI)
+LeftCol.Size = UDim2.new(0.25,0,1,-36)
+LeftCol.Position = UDim2.new(0,0,0,36)
+LeftCol.BackgroundTransparency = 1
+LeftCol.ScrollBarThickness = 6
+LeftCol.CanvasSize = UDim2.new(0,0,0,0)
 
-        TravelingSelected = "",
-        AutoBuyTravelingSelected = false,
+local RightCol = Instance.new("Frame", MainUI)
+RightCol.Size = UDim2.new(0.75,0,1,-36)
+RightCol.Position = UDim2.new(0.25,0,0,36)
+RightCol.BackgroundTransparency = 1
 
-        EventOpenBeanShop = false,
-        EventSelected = "",
-        AutoBuyEventSelected = false,
-        AutoBuyEventAll = false
-    }
+-- Tab system
+local TabButtons = {}
+local TabContents = {}
+
+local Tabs = {
+    {Name="Info", Icon="ℹ️"},
+    {Name="Player", Icon="👤"},
+    {Name="Main", Icon="🏠"},
+    {Name="Shop", Icon="🛒"},
+    {Name="Pet", Icon="🐶"},
+    {Name="Farm", Icon="🌾"},
+    {Name="Performance", Icon="⚡"},
+    {Name="Ui", Icon="🖥️"},
+    {Name="Webhook", Icon="🌐"}, -- thêm tab Webhook
 }
 
--- ========== BACKGROUND LOOPS ==========
+local TabList = Instance.new("UIListLayout", LeftCol)
+TabList.FillDirection = Enum.FillDirection.Vertical
+TabList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabList.VerticalAlignment = Enum.VerticalAlignment.Top
+TabList.Padding = UDim.new(0,10)
 
--- WalkSpeed keeper (đề phòng bị game reset)
-RunService.Heartbeat:Connect(function()
-    local h = Humanoid()
-    if h then
-        if typeof(getgenv().MG.WalkSpeed) == "number" then
-            h.WalkSpeed = clamp(getgenv().MG.WalkSpeed, 16, 1000)
-        end
-    end
-end)
+for _,tab in ipairs(Tabs) do
+    local Btn = Instance.new("TextButton", LeftCol)
+    Btn.Size = UDim2.new(1,-20,0,40)
+    Btn.BackgroundColor3 = Color3.fromRGB(255,182,193)
+    Btn.BackgroundTransparency = 0.3
+    Btn.Text = tab.Icon.." "..tab.Name
+    Btn.Font = Enum.Font.GothamBold
+    Btn.TextSize = 16
+    Btn.TextColor3 = Color3.fromRGB(255,255,255) -- chữ trắng
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0,8)
 
--- Infinite Jump
-UIS.JumpRequest:Connect(function()
-    if getgenv().MG.InfJump then
-        local h = Humanoid()
-        if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
+    -- ❌ Không còn UIStroke (xoá viền)
 
--- Noclip
-RunService.Stepped:Connect(function()
-    if getgenv().MG.Noclip then
-        local ch = LocalPlayer.Character
-        if ch then
-            for _,v in ipairs(ch:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
+    local Content = Instance.new("Frame", RightCol)
+    Content.Size = UDim2.new(1,-20,1,-20)
+    Content.Position = UDim2.new(0,10,0,10)
+    Content.BackgroundColor3 = Color3.fromRGB(255,182,193)
+    Content.BackgroundTransparency = 0.3
+    Instance.new("UICorner", Content).CornerRadius = UDim.new(0,12)
+    local CStroke = Instance.new("UIStroke", Content)
+    CStroke.Color = Color3.fromRGB(255,105,180)
+
+    local Label = Instance.new("TextLabel", Content)
+    Label.Size = UDim2.new(1,0,1,0)
+    Label.BackgroundTransparency = 1
+    Label.Text = tab.Name.." Content"
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 18
+    Label.TextColor3 = Color3.fromRGB(255,105,180)
+    Label.TextXAlignment = Enum.TextXAlignment.Center
+    Label.TextYAlignment = Enum.TextYAlignment.Center
+
+    Content.Visible = false
+
+    Btn.MouseButton1Click:Connect(function()
+        for _,c in pairs(TabContents) do
+            if c.Visible then
+                TweenService:Create(c, TweenInfo.new(0.25), {BackgroundTransparency = 1}):Play()
+                task.delay(0.25, function() c.Visible = false end)
             end
         end
-    end
+        Content.Visible = true
+        Content.BackgroundTransparency = 1
+        TweenService:Create(Content, TweenInfo.new(0.25), {BackgroundTransparency = 0.3}):Play()
+    end)
+
+    table.insert(TabButtons, Btn)
+    table.insert(TabContents, Content)
+end
+
+-- Set initial
+TabContents[1].Visible = true
+
+-- Update canvas size
+TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    LeftCol.CanvasSize = UDim2.new(0,0,0,TabList.AbsoluteContentSize.Y + 20)
 end)
 
--- Fly (phím F toggle + toggle trong UI)
-local flyKey = Enum.KeyCode.F
-UIS.InputBegan:Connect(function(inp, gpe)
-    if gpe then return end
-    if inp.KeyCode == flyKey then
-        getgenv().MG.Fly = not getgenv().MG.Fly
-        Notify("MinzyGuri", "Fly: "..tostring(getgenv().MG.Fly), 1.5)
-    end
-end)
-
-RunService.RenderStepped:Connect(function(dt)
-    if getgenv().MG.Fly then
-        local root = HRP()
-        if root then
-            local cam = workspace.CurrentCamera
-            local move = Vector3.new()
-            if UIS:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
-            if move.Magnitude > 0 then
-                root.CFrame = root.CFrame + move.Unit * (getgenv().MG.FlySpeed or 50) * dt
-            end
-        end
-    end
-end)
-
--- Auto Collect (demo: tìm Part tên chứa từ khóa trái/mutation → chạm/TP ngắn)
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if not getgenv().MG.AutoCollect then continue end
-        local root = HRP()
-        if not root then continue end
-
-        -- tiêu chí lọc
-        local nameKey = (getgenv().MG.CollectFilter.FruitSearch or ""):lower()
-        local mutKey  = (getgenv().MG.CollectFilter.MutationSearch or ""):lower()
-
-        -- tìm item gần nhất
-        local nearest, ndist
-        for _,obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                local n = obj.Name:lower()
-                local okFruit = (nameKey == "" or n:find(nameKey, 1, true))
-                local okMut   = (mutKey == ""  or n:find(mutKey, 1, true))
-                -- Heuristic: cố gắng nhặt các phần có tên gợi ý item/fruit/seed/coin
-                local looksLikePickup = (n:find("fruit") or n:find("seed") or n:find("coin") or n:find("drop") or n:find("item"))
-                if okFruit and okMut and looksLikePickup then
-                    local d = (root.Position - obj.Position).Magnitude
-                    if not ndist or d < ndist then
-                        nearest, ndist = obj, d
-                    end
-                end
-            end
-        end
-
-        if nearest and ndist and ndist < 1000 then
-            -- TP ngắn + touch thử
-            local targetCF = nearest.CFrame
-            safeTP(targetCF + Vector3.new(0, 2, 0))
-            task.wait(0.05)
-            pcall(function()
-                firetouchinterest(root, nearest, 0)
-                firetouchinterest(root, nearest, 1)
+-- Drag function (mobile + pc)
+local function makeDraggable(handle, target)
+    local dragging, dragStart, startPos
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = target.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
-    end
-end)
-
--- ========== UI WINDOW ==========
-local Window = Rayfield:CreateWindow({
-    Name = "MinzyGuri Hub",
-    LoadingTitle = "MinzyGuri Hub",
-    LoadingSubtitle = "Grow a Garden",
-    ConfigurationSaving = { Enabled = true, FolderName = "MinzyGuriHub", FileName = "MinzyGuri" },
-    KeySystem = false
-})
-
--- ===================== TAB HOME =====================
-local Home = Window:CreateTab("🏡 Home", 4483362458)
-
--- Khung Plant
-Home:CreateSection("Chế độ trồng")
-local PlantMode = Home:CreateDropdown({
-    Name = "Chọn chế độ",
-    Options = {"Random","Ở vị trí người chơi"},
-    CurrentOption = "Random",
-    Flag = "PlantMode",
-    Callback = function(val)
-        getgenv().MG.PlantMode = val
-    end
-})
-
-Home:CreateToggle({
-    Name = "Tự động trồng (demo placeholder)",
-    CurrentValue = false,
-    Flag = "AutoPlant",
-    Callback = function(v)
-        getgenv().MG.AutoPlant = v
-        if v then
-            Notify("Auto Plant", "Đang bật (đang để khung – cần nối Remote game).", 2)
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
-    end
-})
-
--- Khung Auto Collect
-Home:CreateSection("Tự động nhặt")
-Home:CreateToggle({
-    Name = "Auto Collect (có lọc)",
-    CurrentValue = false,
-    Flag = "AutoCollect",
-    Callback = function(v)
-        getgenv().MG.AutoCollect = v
-        Notify("Auto Collect", v and "ON" or "OFF", 1.5)
-    end
-})
-
-local fruitSearch = Home:CreateInput({
-    Name = "Tìm theo tên trái (search)",
-    PlaceholderText = "vd: apple, coin, seed...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.CollectFilter.FruitSearch = tostring(txt or "")
-    end
-})
-
-local mutSearch = Home:CreateInput({
-    Name = "Tìm theo mutation (search)",
-    PlaceholderText = "vd: golden, rare...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.CollectFilter.MutationSearch = tostring(txt or "")
-    end
-})
-
--- Khung Event: Beanstalk
-Home:CreateSection("Event: Beanstalk")
-Home:CreateToggle({
-    Name = "Auto thu hoạch trái theo yêu cầu NPC",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Beanstalk.AutoHarvestRequired = v
-        Notify("Beanstalk", "Auto Harvest: "..tostring(v))
-    end
-})
-Home:CreateToggle({
-    Name = "Auto nộp ALL trái cho NPC",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Beanstalk.AutoSubmitAll = v
-        Notify("Beanstalk", "Auto Submit: "..tostring(v))
-    end
-})
-Home:CreateToggle({
-    Name = "Auto nhặt vật phẩm sự kiện",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Beanstalk.AutoCollectEventItems = v
-        Notify("Beanstalk", "Auto Collect Event: "..tostring(v))
-    end
-})
-
--- Khung Event: Cooking
-Home:CreateSection("Event: Cooking")
-local cookInputs = {}
-for i=1,5 do
-    cookInputs[i] = Home:CreateInput({
-        Name = ("Chọn trái thứ %d (search)"):format(i),
-        PlaceholderText = "gõ tên... (vd: apple)",
-        RemoveTextAfterFocusLost = false,
-        Callback = function(txt)
-            getgenv().MG.Cooking.Slots[i] = tostring(txt or "")
-        end
-    })
+    end)
 end
-Home:CreateToggle({
-    Name = "Auto Cook",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Cooking.AutoCook = v
-        Notify("Cooking", "Auto Cook: "..tostring(v))
-    end
-})
-Home:CreateToggle({
-    Name = "Auto lấy food",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Cooking.AutoTakeFood = v
-        Notify("Cooking", "Auto Take: "..tostring(v))
-    end
-})
+makeDraggable(Header, MainUI)
+makeDraggable(ToggleButton, ToggleButton)
 
--- Khung Mutation
-Home:CreateSection("Mutation")
-Home:CreateButton({
-    Name = "Kích hoạt máy mutation (no pet)",
-    Callback = function()
-        -- TODO: Nối Remote kích hoạt máy mutation
-        Notify("Mutation", "Kích hoạt máy (placeholder) – cần Remote chính xác.", 2)
+-- Toggle UI
+local isUIVisible = true
+local lastPos = MainUI.Position
+ToggleButton.MouseButton1Click:Connect(function()
+    if isUIVisible then
+        lastPos = MainUI.Position
+        TweenService:Create(MainUI, TweenInfo.new(TWEEN_TIME), {Position = UDim2.new(lastPos.X.Scale,lastPos.X.Offset,-1,-UI_H)}):Play()
+    else
+        TweenService:Create(MainUI, TweenInfo.new(TWEEN_TIME), {Position = lastPos}):Play()
     end
-})
-Home:CreateButton({
-    Name = "Nộp pet đang cầm",
-    Callback = function()
-        -- TODO: Nối Remote nộp pet trên tay
-        Notify("Mutation", "Nộp pet (placeholder) – cần Remote chính xác.", 2)
-    end
-})
-
--- Khung Craft
-Home:CreateSection("Craft")
-local gearSelect = Home:CreateInput({
-    Name = "Chọn Gear (search)",
-    PlaceholderText = "gõ tên gear...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Craft.GearSelected = tostring(txt or "")
-    end
-})
-local seedSelect = Home:CreateInput({
-    Name = "Chọn Seed (search)",
-    PlaceholderText = "gõ tên seed...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Craft.SeedSelected = tostring(txt or "")
-    end
-})
-Home:CreateToggle({
-    Name = "Auto craft gear đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Craft.AutoCraftGear = v
-        Notify("Craft", "Auto Craft Gear: "..tostring(v))
-    end
-})
-Home:CreateToggle({
-    Name = "Auto craft seed đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Craft.AutoCraftSeed = v
-        Notify("Craft", "Auto Craft Seed: "..tostring(v))
-    end
-})
-
--- ===================== TAB PET =====================
-local Pet = Window:CreateTab("🐾 Pet", 4483362458)
-
-Pet:CreateSection("Auto Egg")
-local eggSelect = Pet:CreateInput({
-    Name = "Chọn Egg (search)",
-    PlaceholderText = "gõ tên egg...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Pet.EggSelected = tostring(txt or "")
-    end
-})
-Pet:CreateToggle({
-    Name = "Auto đặt egg đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Pet.AutoPlaceEgg = v
-        Notify("Pet", "Auto Place Egg: "..tostring(v))
-    end
-})
-Pet:CreateToggle({
-    Name = "Auto nở egg đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Pet.AutoHatch = v
-        Notify("Pet", "Auto Hatch: "..tostring(v))
-    end
-})
-
-Pet:CreateSection("Pet Boosts")
-local petDeployed = Pet:CreateInput({
-    Name = "Chọn pet đã thả ở vườn (search)",
-    PlaceholderText = "gõ tên/ID pet...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Pet.BoostPetSelected = tostring(txt or "")
-    end
-})
-local boostItem = Pet:CreateInput({
-    Name = "Chọn vật phẩm boost (search)",
-    PlaceholderText = "gõ tên item...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Pet.BoostItemSelected = tostring(txt or "")
-    end
-})
-Pet:CreateToggle({
-    Name = "Auto dùng boost đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Pet.AutoApplyBoost = v
-        Notify("Pet", "Auto Boost: "..tostring(v))
-    end
-})
-Pet:CreateButton({
-    Name = "Làm mới danh sách pet (placeholder)",
-    Callback = function()
-        Notify("Pet", "Refresh (placeholder) – cần đọc data pet trong Workspace/ReplicatedStorage.", 2)
-    end
-})
-
--- ===================== TAB SHOP =====================
-local Shop = Window:CreateTab("🛒 Shop", 4483362458)
-
--- Seed
-Shop:CreateSection("Seed Shop")
-local seedShopSelect = Shop:CreateInput({
-    Name = "Chọn seed (search)",
-    PlaceholderText = "gõ tên seed...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Shop.SeedSelected = tostring(txt or "")
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua seed đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuySeedSelected = v
-        Notify("Shop", "Auto Buy Seed Selected: "..tostring(v))
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua ALL seed",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyAllSeed = v
-        Notify("Shop", "Auto Buy All Seed: "..tostring(v))
-    end
-})
-
--- Gear
-Shop:CreateSection("Gear Shop")
-local gearShopSelect = Shop:CreateInput({
-    Name = "Chọn gear (search)",
-    PlaceholderText = "gõ tên gear...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Shop.GearSelected = tostring(txt or "")
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua gear đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyGearSelected = v
-        Notify("Shop", "Auto Buy Gear Selected: "..tostring(v))
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua ALL gear",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyAllGear = v
-        Notify("Shop", "Auto Buy All Gear: "..tostring(v))
-    end
-})
-
--- Egg Shop
-Shop:CreateSection("Egg Shop")
-local eggShopSelect = Shop:CreateInput({
-    Name = "Chọn egg (search)",
-    PlaceholderText = "gõ tên egg...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Shop.EggSelected = tostring(txt or "")
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua egg đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyEggSelected = v
-        Notify("Shop", "Auto Buy Egg Selected: "..tostring(v))
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua ALL egg",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyAllEgg = v
-        Notify("Shop", "Auto Buy All Egg: "..tostring(v))
-    end
-})
-
--- Traveling Shop
-Shop:CreateSection("Traveling Shop")
-local travelingSelect = Shop:CreateInput({
-    Name = "Chọn vật phẩm (search)",
-    PlaceholderText = "gõ tên item...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Shop.TravelingSelected = tostring(txt or "")
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua vật phẩm đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyTravelingSelected = v
-        Notify("Shop", "Auto Buy Traveling Item: "..tostring(v))
-    end
-})
-
--- Event Shop
-Shop:CreateSection("Event Shop (Beanstalk)")
-Shop:CreateToggle({
-    Name = "Auto mở shop Beanstalk",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.EventOpenBeanShop = v
-        Notify("Shop", "Auto open Beanstalk Shop: "..tostring(v))
-    end
-})
-local eventItemSelect = Shop:CreateInput({
-    Name = "Chọn vật phẩm (search)",
-    PlaceholderText = "gõ tên item...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        getgenv().MG.Shop.EventSelected = tostring(txt or "")
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua vật phẩm đã chọn",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyEventSelected = v
-        Notify("Shop", "Auto Buy Event Selected: "..tostring(v))
-    end
-})
-Shop:CreateToggle({
-    Name = "Auto mua ALL vật phẩm",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Shop.AutoBuyEventAll = v
-        Notify("Shop", "Auto Buy Event All: "..tostring(v))
-    end
-})
-
--- ===================== TAB SETTINGS =====================
-local Settings = Window:CreateTab("⚙️ Settings", 4483362458)
-
-Settings:CreateSection("Di chuyển")
-Settings:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 1000},
-    Increment = 1,
-    Suffix = "",
-    CurrentValue = 16,
-    Callback = function(v)
-        getgenv().MG.WalkSpeed = v
-    end
-})
-
-Settings:CreateToggle({
-    Name = "Infinite Jump",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.InfJump = v
-        Notify("Settings", "Infinite Jump: "..tostring(v), 1.2)
-    end
-})
-
-Settings:CreateToggle({
-    Name = "Noclip",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Noclip = v
-        Notify("Settings", "Noclip: "..tostring(v), 1.2)
-    end
-})
-
-Settings:CreateSection("Fly")
-Settings:CreateSlider({
-    Name = "Fly Speed",
-    Range = {10, 500},
-    Increment = 5,
-    Suffix = "",
-    CurrentValue = 50,
-    Callback = function(v)
-        getgenv().MG.FlySpeed = v
-    end
-})
-Settings:CreateToggle({
-    Name = "Fly (ấn phím F để bật/tắt nhanh)",
-    CurrentValue = false,
-    Callback = function(v)
-        getgenv().MG.Fly = v
-        Notify("Settings", "Fly: "..tostring(v), 1.2)
-    end
-})
-
--- Done
-Notify("MinzyGuri Hub", "Loaded! Tabs: Home / Pet / Shop / Settings", 3)
+    isUIVisible = not isUIVisible
+end)

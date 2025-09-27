@@ -175,9 +175,6 @@ local Tabs = {
     {Name="Player", Icon="👤"},
     {Name="Main", Icon="🏠"},
     {Name="Shop", Icon="🛒"},
-    {Name="Pet", Icon="🐶"},
-    {Name="Farm", Icon="🌾"},
-    {Name="Performance", Icon="⚡"},
     {Name="Ui", Icon="🖥️"},
     {Name="Webhook", Icon="🌐"},
 }

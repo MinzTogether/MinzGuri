@@ -16,31 +16,37 @@ end
 
 --// ================= THEME =================
 local Theme = {
-    Background   = Color3.fromRGB(26, 27, 38),
-    Panel        = Color3.fromRGB(36, 40, 59),
-    PanelAlt     = Color3.fromRGB(31, 33, 48),
-    Header       = Color3.fromRGB(30, 32, 48),
-    Border       = Color3.fromRGB(65, 72, 104),
-    AccentBlue   = Color3.fromRGB(122, 162, 247),
-    AccentPurple = Color3.fromRGB(187, 154, 247),
-    Text         = Color3.fromRGB(192, 202, 245),
-    SubText      = Color3.fromRGB(120, 130, 170),
+    Background   = Color3.fromRGB(29, 21, 52),    -- #1D1534 bg-main
+    Panel        = Color3.fromRGB(33, 21, 58),    -- #21153A bg-card
+    PanelAlt     = Color3.fromRGB(37, 25, 66),    -- #251942 bg-sidebar
+    Header       = Color3.fromRGB(49, 32, 75),    -- #31204B bg-card-hover
+    Border       = Color3.fromRGB(84, 53, 128),   -- #543580 purple border
+    AccentBlue   = Color3.fromRGB(243, 99, 225),  -- #F363E1 pink primary (main accent)
+    AccentPurple = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
+    Text         = Color3.fromRGB(226, 190, 250), -- #E2BEFA text primary
+    SubText      = Color3.fromRGB(191, 157, 238), -- #BF9DEE text secondary / purple light
     Success      = Color3.fromRGB(158, 206, 106),
     Danger       = Color3.fromRGB(247, 118, 142),
+    Neon         = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
+    ToggleOff    = Color3.fromRGB(71, 48, 112),   -- #473070 toggle OFF track
+    ToggleKnob   = Color3.fromRGB(226, 190, 250), -- #E2BEFA toggle knob (off)
 }
 
 --// ================= CONFIG =================
 local UI_NAME        = "Zannystar"
-local UI_W, UI_H      = 800, 500
+local UI_W, UI_H      = 650, 420      -- reduced UI size
 local TOGGLE_SIZE     = 50
-local TAB_FRACTION    = 2 / 12   -- tab list takes 2/12 of UI width
 local POPUP_TIME      = 0.45
 local CLOSE_TIME      = 0.30
-local FOOTER_HEIGHT   = 52
 local TOPBAR_HEIGHT   = 40
-local GAP_OUTER       = 10  -- UI edge <-> Tab panel, and Function panel <-> UI edge
-local GAP_MIDDLE      = 14  -- Tab panel <-> Function panel
-local VGAP            = 6   -- vertical padding for both panels
+
+--// ---- Layout margins (per spec) ----
+local MARGIN_EDGE     = 8   -- tabs/panels <-> top & bottom of UI, tab list <-> UI left, function panel <-> UI right
+local MARGIN_GAP      = 10  -- tab list <-> function panel
+local TAB_PANEL_WIDTH = 150 -- fixed width of the left tab-list column (also width of the highlight tab below it)
+
+local HIGHLIGHT_HEIGHT = 56 -- height of the pinned player-info highlight tab
+local HIGHLIGHT_GAP     = 8 -- gap between tab list and the highlight tab above it
 
 --// ================= ROOT =================
 local ScreenGui = Instance.new("ScreenGui")
@@ -101,6 +107,49 @@ local function makeDraggable(handle, target)
     end)
 end
 
+-- Same as makeDraggable, but only fires onClick() when the input ends
+-- WITHOUT having moved past `threshold` pixels — a real drag never
+-- triggers the click, and a real click never moves the button.
+local function makeDraggableButton(handle, target, onClick, threshold)
+    threshold = threshold or 5
+    local dragging, moved, dragStart, startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            moved = false
+            dragStart = input.Position
+            startPos = target.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    if dragging and not moved then
+                        onClick()
+                    end
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            if not moved and delta.Magnitude > threshold then
+                moved = true
+            end
+            if moved then
+                target.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+end
+
 --// ================= FLOATING TOGGLE BUTTON =================
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Name = "MG_Toggle"
@@ -130,7 +179,7 @@ MainUI.Parent = ScreenGui
 corner(MainUI, 12)
 stroke(MainUI, Theme.Border)
 
---// ---- Top bar (highlighted) with title ----
+--// ---- Top bar with title ----
 local TopBar = Instance.new("Frame", MainUI)
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT)
@@ -175,44 +224,18 @@ CloseBtn.AutoButtonColor = false
 CloseBtn.ZIndex = 2
 corner(CloseBtn, 6)
 
---// ---- Body (tabs + function panel) ----
+--// ---- Body ----
 local Body = Instance.new("Frame", MainUI)
 Body.Name = "Body"
-Body.Size = UDim2.new(1, 0, 1, -(TOPBAR_HEIGHT + FOOTER_HEIGHT))
+Body.Size = UDim2.new(1, 0, 1, -TOPBAR_HEIGHT)
 Body.Position = UDim2.new(0, 0, 0, TOPBAR_HEIGHT)
 Body.BackgroundTransparency = 1
 
---// Tab list panel (left, 2/12 width) — sits GAP_OUTER px from the UI's left edge
-local TabPanel = Instance.new("Frame", Body)
-TabPanel.Name = "TabPanel"
-TabPanel.Position = UDim2.new(0, GAP_OUTER, 0, VGAP)
-TabPanel.Size = UDim2.new(TAB_FRACTION, 0, 1, -(VGAP * 2))
-TabPanel.BackgroundColor3 = Theme.PanelAlt
-TabPanel.BorderSizePixel = 0
-corner(TabPanel, 8)
-stroke(TabPanel, Theme.Border)
-
-local TabScroll = Instance.new("ScrollingFrame", TabPanel)
-TabScroll.Name = "TabScroll"
-TabScroll.Size = UDim2.new(1, -8, 1, -8)
-TabScroll.Position = UDim2.new(0, 4, 0, 4)
-TabScroll.BackgroundTransparency = 1
-TabScroll.BorderSizePixel = 0
-TabScroll.ScrollBarThickness = 4
-TabScroll.ScrollBarImageColor3 = Theme.AccentBlue
-TabScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-TabScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-local TabLayout = Instance.new("UIListLayout", TabScroll)
-TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabLayout.Padding = UDim.new(0, 6)
-
---// Function panel (right, 10/12 width) — GAP_MIDDLE px from the tab panel AND
---// GAP_OUTER px from the UI's right edge, framed the same way as the tab panel.
+--// Function panel (right column) — 8px from UI right, 8px from top/bottom
 local FunctionPanel = Instance.new("Frame", Body)
 FunctionPanel.Name = "FunctionPanel"
-FunctionPanel.Position = UDim2.new(TAB_FRACTION, GAP_OUTER + GAP_MIDDLE, 0, VGAP)
-FunctionPanel.Size = UDim2.new(1 - TAB_FRACTION, -(GAP_OUTER * 2 + GAP_MIDDLE), 1, -(VGAP * 2))
+FunctionPanel.Position = UDim2.new(0, MARGIN_EDGE + TAB_PANEL_WIDTH + MARGIN_GAP, 0, MARGIN_EDGE)
+FunctionPanel.Size = UDim2.new(1, -(MARGIN_EDGE + TAB_PANEL_WIDTH + MARGIN_GAP + MARGIN_EDGE), 1, -(MARGIN_EDGE * 2))
 FunctionPanel.BackgroundColor3 = Theme.PanelAlt
 FunctionPanel.BorderSizePixel = 0
 corner(FunctionPanel, 8)
@@ -234,57 +257,97 @@ FunctionLayout.SortOrder = Enum.SortOrder.LayoutOrder
 FunctionLayout.Padding = UDim.new(0, 10)
 
 local FunctionPadding = Instance.new("UIPadding", FunctionScroll)
+FunctionPadding.PaddingLeft = UDim.new(0, 6)
 FunctionPadding.PaddingRight = UDim.new(0, 6)
 
---// ---- Footer (highlighted) with player info ----
-local Footer = Instance.new("Frame", MainUI)
-Footer.Name = "Footer"
-Footer.Size = UDim2.new(1, 0, 0, FOOTER_HEIGHT)
-Footer.Position = UDim2.new(0, 0, 1, -FOOTER_HEIGHT)
-Footer.BackgroundColor3 = Theme.Header
-Footer.BorderSizePixel = 0
-corner(Footer, 12)
+--// Tab column (left) — 8px from UI left, 8px from top/bottom, 10px from function panel.
+--// Holds the tab-list panel on top and the pinned highlight (player info) tab below it.
+local TabColumn = Instance.new("Frame", Body)
+TabColumn.Name = "TabColumn"
+TabColumn.Position = UDim2.new(0, MARGIN_EDGE, 0, MARGIN_EDGE)
+TabColumn.Size = UDim2.new(0, TAB_PANEL_WIDTH, 1, -(MARGIN_EDGE * 2))
+TabColumn.BackgroundTransparency = 1
 
-local FooterMask = Instance.new("Frame", Footer)
-FooterMask.Size = UDim2.new(1, 0, 0, 12)
-FooterMask.BackgroundColor3 = Theme.Header
-FooterMask.BorderSizePixel = 0
+--// Tab list panel (top part of the column)
+local TabPanel = Instance.new("Frame", TabColumn)
+TabPanel.Name = "TabPanel"
+TabPanel.Size = UDim2.new(1, 0, 1, -(HIGHLIGHT_HEIGHT + HIGHLIGHT_GAP))
+TabPanel.Position = UDim2.new(0, 0, 0, 0)
+TabPanel.BackgroundColor3 = Theme.PanelAlt
+TabPanel.BorderSizePixel = 0
+corner(TabPanel, 8)
+stroke(TabPanel, Theme.Border)
 
-local FooterAccent = Instance.new("Frame", Footer)
-FooterAccent.Size = UDim2.new(1, 0, 0, 2)
-FooterAccent.BackgroundColor3 = Theme.AccentPurple
-FooterAccent.BorderSizePixel = 0
-FooterAccent.ZIndex = 2
+local TabScroll = Instance.new("ScrollingFrame", TabPanel)
+TabScroll.Name = "TabScroll"
+TabScroll.Size = UDim2.new(1, -8, 1, -8)
+TabScroll.Position = UDim2.new(0, 4, 0, 4)
+TabScroll.BackgroundTransparency = 1
+TabScroll.BorderSizePixel = 0
+TabScroll.ScrollBarThickness = 4
+TabScroll.ScrollBarImageColor3 = Theme.AccentBlue
+TabScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+TabScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-local AvatarFrame = Instance.new("ImageLabel", Footer)
-AvatarFrame.Size = UDim2.new(0, 36, 0, 36)
-AvatarFrame.Position = UDim2.new(0, 12, 0.5, -18)
+local TabLayout = Instance.new("UIListLayout", TabScroll)
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 6)
+
+--// Highlight tab 
+local HighlightTab = Instance.new("Frame", TabColumn)
+HighlightTab.Name = "HighlightTab"
+HighlightTab.AnchorPoint = Vector2.new(0, 1)
+HighlightTab.Position = UDim2.new(0, 0, 1, 0)
+HighlightTab.Size = UDim2.new(1, 0, 0, HIGHLIGHT_HEIGHT)
+HighlightTab.BackgroundColor3 = Theme.Header
+HighlightTab.BorderSizePixel = 0
+corner(HighlightTab, 8)
+
+local HighlightStroke = stroke(HighlightTab, Theme.Neon, 2)
+HighlightStroke.Transparency = 0.1
+
+-- Neon pulsing glow loop
+task.spawn(function()
+    while HighlightTab.Parent do
+        tween(HighlightStroke, 0.9, { Transparency = 0.6 }, Enum.EasingStyle.Sine):Play()
+        task.wait(0.9)
+        tween(HighlightStroke, 0.9, { Transparency = 0.1 }, Enum.EasingStyle.Sine):Play()
+        task.wait(0.9)
+    end
+end)
+
+local AvatarFrame = Instance.new("ImageLabel", HighlightTab)
+AvatarFrame.Size = UDim2.new(0, 32, 0, 32)
+AvatarFrame.Position = UDim2.new(0, 8, 0.5, -16)
 AvatarFrame.BackgroundColor3 = Theme.Panel
 AvatarFrame.ScaleType = Enum.ScaleType.Crop
 AvatarFrame.ZIndex = 2
-corner(AvatarFrame, 18)
+corner(AvatarFrame, 16)
 stroke(AvatarFrame, Theme.Border)
 
-local PlayerNameLabel = Instance.new("TextLabel", Footer)
-PlayerNameLabel.Size = UDim2.new(1, -140, 0, 18)
-PlayerNameLabel.Position = UDim2.new(0, 58, 0, 8)
+--// Player name — 
+local PlayerNameLabel = Instance.new("TextLabel", HighlightTab)
+PlayerNameLabel.Size = UDim2.new(1, -50, 0, 18)
+PlayerNameLabel.Position = UDim2.new(0, 48, 0, 8)
 PlayerNameLabel.BackgroundTransparency = 1
 PlayerNameLabel.Text = LocalPlayer.DisplayName
 PlayerNameLabel.Font = Enum.Font.GothamBold
-PlayerNameLabel.TextSize = 14
+PlayerNameLabel.TextSize = 13
 PlayerNameLabel.TextColor3 = Theme.Text
 PlayerNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+PlayerNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 PlayerNameLabel.ZIndex = 2
 
-local PlayerTagLabel = Instance.new("TextLabel", Footer)
-PlayerTagLabel.Size = UDim2.new(1, -140, 0, 14)
-PlayerTagLabel.Position = UDim2.new(0, 58, 0, 26)
+local PlayerTagLabel = Instance.new("TextLabel", HighlightTab)
+PlayerTagLabel.Size = UDim2.new(1, -50, 0, 14)
+PlayerTagLabel.Position = UDim2.new(0, 48, 0, 26)
 PlayerTagLabel.BackgroundTransparency = 1
 PlayerTagLabel.Text = "@" .. LocalPlayer.Name
 PlayerTagLabel.Font = Enum.Font.Gotham
-PlayerTagLabel.TextSize = 12
+PlayerTagLabel.TextSize = 11
 PlayerTagLabel.TextColor3 = Theme.SubText
 PlayerTagLabel.TextXAlignment = Enum.TextXAlignment.Left
+PlayerTagLabel.TextTruncate = Enum.TextTruncate.AtEnd
 PlayerTagLabel.ZIndex = 2
 
 -- Load avatar thumbnail (safe pcall in case of API failure)
@@ -303,7 +366,6 @@ end)
 
 --// ================= DRAG SUPPORT =================
 makeDraggable(TopBar, MainUI)
-makeDraggable(ToggleButton, ToggleButton)
 
 --// ================= OPEN / CLOSE ANIMATION =================
 local isOpen = false
@@ -328,7 +390,7 @@ local function closeUI()
     end)
 end
 
-ToggleButton.MouseButton1Click:Connect(function()
+makeDraggableButton(ToggleButton, ToggleButton, function()
     if isOpen then closeUI() else openUI() end
 end)
 
@@ -424,15 +486,20 @@ local function CreateToggleOption(parent, title, height)
     Switch.Size = UDim2.new(0, pxW, 0, pxH)
     Switch.AnchorPoint = Vector2.new(1, 0.5)
     Switch.Position = UDim2.new(1, -rightOffset, 0.5, 0)
-    Switch.BackgroundColor3 = Theme.Border
+    Switch.BackgroundColor3 = Theme.ToggleOff
     Switch.Text = ""
     Switch.AutoButtonColor = false
     corner(Switch, 12)
 
+    -- Purple -> pink gradient shown only while the switch is ON
+    local SwitchGradient = Instance.new("UIGradient", Switch)
+    SwitchGradient.Color = ColorSequence.new(Theme.AccentPurple, Theme.AccentBlue)
+    SwitchGradient.Enabled = false
+
     local Knob = Instance.new("Frame", Switch)
     Knob.Size = UDim2.new(0, pxH - 4, 0, pxH - 4)
     Knob.Position = UDim2.new(0, 2, 0, 2)
-    Knob.BackgroundColor3 = Theme.Text
+    Knob.BackgroundColor3 = Theme.ToggleKnob
     Knob.BorderSizePixel = 0
     corner(Knob, 10)
 
@@ -444,16 +511,18 @@ local function CreateToggleOption(parent, title, height)
         Switch:SetAttribute("Toggled", state)
 
         local knobTarget = state and UDim2.new(1, -(pxH - 2), 0, 2) or UDim2.new(0, 2, 0, 2)
-        local bgTarget = state and Theme.AccentBlue or Theme.Border
+        local bgTarget = state and Theme.AccentBlue or Theme.ToggleOff
+        local knobColorTarget = state and Color3.fromRGB(255, 255, 255) or Theme.ToggleKnob
 
+        SwitchGradient.Enabled = state
         tween(Switch, 0.18, { BackgroundColor3 = bgTarget }):Play()
-        tween(Knob, 0.18, { Position = knobTarget }):Play()
+        tween(Knob, 0.18, { Position = knobTarget, BackgroundColor3 = knobColorTarget }):Play()
     end)
 
     return Switch
 end
 
--- Simple section header inside a tab (for grouping options visually).
+-- Simple section header inside a tab
 local function CreateSectionLabel(parent, text)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(1, 0, 0, 24)
@@ -466,7 +535,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EXAMPLE TABS (replace with real content) =================
+--// ================= EX TABS =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

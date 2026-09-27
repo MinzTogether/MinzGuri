@@ -32,7 +32,7 @@ local Theme = {
 
 --// ================= CONFIG =================
 local UI_NAME        = "Zannystar"
-local UI_W, UI_H      = 650, 420      -- reduced UI size
+local UI_W, UI_H      = 700, 470      -- reduced UI size
 local TOGGLE_SIZE     = 50
 local POPUP_TIME      = 0.45
 local CLOSE_TIME      = 0.30

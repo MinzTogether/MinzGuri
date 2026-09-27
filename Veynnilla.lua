@@ -16,18 +16,20 @@ end
 
 --// ================= THEME =================
 local Theme = {
-    Background   = Color3.fromRGB(26, 27, 38),
-    Panel        = Color3.fromRGB(36, 40, 59),
-    PanelAlt     = Color3.fromRGB(31, 33, 48),
-    Header       = Color3.fromRGB(30, 32, 48),
-    Border       = Color3.fromRGB(65, 72, 104),
-    AccentBlue   = Color3.fromRGB(122, 162, 247),
-    AccentPurple = Color3.fromRGB(187, 154, 247),
-    Text         = Color3.fromRGB(192, 202, 245),
-    SubText      = Color3.fromRGB(120, 130, 170),
+    Background   = Color3.fromRGB(29, 21, 52),    -- #1D1534 bg-main
+    Panel        = Color3.fromRGB(33, 21, 58),    -- #21153A bg-card
+    PanelAlt     = Color3.fromRGB(37, 25, 66),    -- #251942 bg-sidebar
+    Header       = Color3.fromRGB(49, 32, 75),    -- #31204B bg-card-hover
+    Border       = Color3.fromRGB(84, 53, 128),   -- #543580 purple border
+    AccentBlue   = Color3.fromRGB(243, 99, 225),  -- #F363E1 pink primary (main accent)
+    AccentPurple = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
+    Text         = Color3.fromRGB(226, 190, 250), -- #E2BEFA text primary
+    SubText      = Color3.fromRGB(191, 157, 238), -- #BF9DEE text secondary / purple light
     Success      = Color3.fromRGB(158, 206, 106),
     Danger       = Color3.fromRGB(247, 118, 142),
-    Neon         = Color3.fromRGB(0, 255, 200),
+    Neon         = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
+    ToggleOff    = Color3.fromRGB(71, 48, 112),   -- #473070 toggle OFF track
+    ToggleKnob   = Color3.fromRGB(226, 190, 250), -- #E2BEFA toggle knob (off)
 }
 
 --// ================= CONFIG =================
@@ -101,6 +103,49 @@ local function makeDraggable(handle, target)
                 startPos.X.Scale, startPos.X.Offset + delta.X,
                 startPos.Y.Scale, startPos.Y.Offset + delta.Y
             )
+        end
+    end)
+end
+
+-- Same as makeDraggable, but only fires onClick() when the input ends
+-- WITHOUT having moved past `threshold` pixels — a real drag never
+-- triggers the click, and a real click never moves the button.
+local function makeDraggableButton(handle, target, onClick, threshold)
+    threshold = threshold or 5
+    local dragging, moved, dragStart, startPos
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            moved = false
+            dragStart = input.Position
+            startPos = target.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    if dragging and not moved then
+                        onClick()
+                    end
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            if not moved and delta.Magnitude > threshold then
+                moved = true
+            end
+            if moved then
+                target.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
         end
     end)
 end
@@ -321,7 +366,6 @@ end)
 
 --// ================= DRAG SUPPORT =================
 makeDraggable(TopBar, MainUI)
-makeDraggable(ToggleButton, ToggleButton)
 
 --// ================= OPEN / CLOSE ANIMATION =================
 local isOpen = false
@@ -346,7 +390,7 @@ local function closeUI()
     end)
 end
 
-ToggleButton.MouseButton1Click:Connect(function()
+makeDraggableButton(ToggleButton, ToggleButton, function()
     if isOpen then closeUI() else openUI() end
 end)
 
@@ -442,15 +486,20 @@ local function CreateToggleOption(parent, title, height)
     Switch.Size = UDim2.new(0, pxW, 0, pxH)
     Switch.AnchorPoint = Vector2.new(1, 0.5)
     Switch.Position = UDim2.new(1, -rightOffset, 0.5, 0)
-    Switch.BackgroundColor3 = Theme.Border
+    Switch.BackgroundColor3 = Theme.ToggleOff
     Switch.Text = ""
     Switch.AutoButtonColor = false
     corner(Switch, 12)
 
+    -- Purple -> pink gradient shown only while the switch is ON
+    local SwitchGradient = Instance.new("UIGradient", Switch)
+    SwitchGradient.Color = ColorSequence.new(Theme.AccentPurple, Theme.AccentBlue)
+    SwitchGradient.Enabled = false
+
     local Knob = Instance.new("Frame", Switch)
     Knob.Size = UDim2.new(0, pxH - 4, 0, pxH - 4)
     Knob.Position = UDim2.new(0, 2, 0, 2)
-    Knob.BackgroundColor3 = Theme.Text
+    Knob.BackgroundColor3 = Theme.ToggleKnob
     Knob.BorderSizePixel = 0
     corner(Knob, 10)
 
@@ -462,10 +511,12 @@ local function CreateToggleOption(parent, title, height)
         Switch:SetAttribute("Toggled", state)
 
         local knobTarget = state and UDim2.new(1, -(pxH - 2), 0, 2) or UDim2.new(0, 2, 0, 2)
-        local bgTarget = state and Theme.AccentBlue or Theme.Border
+        local bgTarget = state and Theme.AccentBlue or Theme.ToggleOff
+        local knobColorTarget = state and Color3.fromRGB(255, 255, 255) or Theme.ToggleKnob
 
+        SwitchGradient.Enabled = state
         tween(Switch, 0.18, { BackgroundColor3 = bgTarget }):Play()
-        tween(Knob, 0.18, { Position = knobTarget }):Play()
+        tween(Knob, 0.18, { Position = knobTarget, BackgroundColor3 = knobColorTarget }):Play()
     end)
 
     return Switch
@@ -484,7 +535,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EXAMPLE TABS =================
+--// ================= EXAMPLE TABS (replace with real content) =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

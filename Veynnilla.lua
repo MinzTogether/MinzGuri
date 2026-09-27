@@ -179,7 +179,7 @@ MainUI.Parent = ScreenGui
 corner(MainUI, 12)
 stroke(MainUI, Theme.Border)
 
---// ---- Top bar (highlighted) with title ----
+--// ---- Top bar with title ----
 local TopBar = Instance.new("Frame", MainUI)
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT)
@@ -224,7 +224,7 @@ CloseBtn.AutoButtonColor = false
 CloseBtn.ZIndex = 2
 corner(CloseBtn, 6)
 
---// ---- Body (tab column + function panel) ----
+--// ---- Body ----
 local Body = Instance.new("Frame", MainUI)
 Body.Name = "Body"
 Body.Size = UDim2.new(1, 0, 1, -TOPBAR_HEIGHT)
@@ -293,7 +293,7 @@ local TabLayout = Instance.new("UIListLayout", TabScroll)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Padding = UDim.new(0, 6)
 
---// Highlight tab (pinned below the tab list, same width as the tab list)
+--// Highlight tab 
 local HighlightTab = Instance.new("Frame", TabColumn)
 HighlightTab.Name = "HighlightTab"
 HighlightTab.AnchorPoint = Vector2.new(0, 1)
@@ -325,7 +325,7 @@ AvatarFrame.ZIndex = 2
 corner(AvatarFrame, 16)
 stroke(AvatarFrame, Theme.Border)
 
---// Player name — truncates to "…" when it doesn't fit the highlight tab's width
+--// Player name — 
 local PlayerNameLabel = Instance.new("TextLabel", HighlightTab)
 PlayerNameLabel.Size = UDim2.new(1, -50, 0, 18)
 PlayerNameLabel.Position = UDim2.new(0, 48, 0, 8)
@@ -522,7 +522,7 @@ local function CreateToggleOption(parent, title, height)
     return Switch
 end
 
--- Simple section header inside a tab (for grouping options visually).
+-- Simple section header inside a tab
 local function CreateSectionLabel(parent, text)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(1, 0, 0, 24)
@@ -535,7 +535,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EXAMPLE TABS (replace with real content) =================
+--// ================= EX TABS =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

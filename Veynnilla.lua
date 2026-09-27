@@ -179,7 +179,7 @@ MainUI.Parent = ScreenGui
 corner(MainUI, 12)
 stroke(MainUI, Theme.Border)
 
---// ---- Top bar with title ----
+--// ---- Top bar (highlighted) with title ----
 local TopBar = Instance.new("Frame", MainUI)
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT)
@@ -224,7 +224,7 @@ CloseBtn.AutoButtonColor = false
 CloseBtn.ZIndex = 2
 corner(CloseBtn, 6)
 
---// ---- Body ----
+--// ---- Body (tab column + function panel) ----
 local Body = Instance.new("Frame", MainUI)
 Body.Name = "Body"
 Body.Size = UDim2.new(1, 0, 1, -TOPBAR_HEIGHT)
@@ -293,7 +293,7 @@ local TabLayout = Instance.new("UIListLayout", TabScroll)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Padding = UDim.new(0, 6)
 
---// Highlight tab 
+--// Highlight tab (pinned below the tab list, same width as the tab list)
 local HighlightTab = Instance.new("Frame", TabColumn)
 HighlightTab.Name = "HighlightTab"
 HighlightTab.AnchorPoint = Vector2.new(0, 1)
@@ -304,15 +304,39 @@ HighlightTab.BorderSizePixel = 0
 corner(HighlightTab, 8)
 
 local HighlightStroke = stroke(HighlightTab, Theme.Neon, 2)
-HighlightStroke.Transparency = 0.1
+HighlightStroke.Transparency = 0 -- transparency nền được điều khiển bởi gradient bên dưới
 
--- Neon pulsing glow loop
+-- Gradient tạo 2 vùng sáng cách đều nhau trên viền, phần còn lại gần như ẩn
+local HighlightGradient = Instance.new("UIGradient", HighlightStroke)
+HighlightGradient.Color = ColorSequence.new(Theme.Neon)
+HighlightGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0.00, 1),   -- ẩn
+    NumberSequenceKeypoint.new(0.04, 0),   -- vùng sáng 1 bắt đầu
+    NumberSequenceKeypoint.new(0.14, 0),   -- vùng sáng 1 kết thúc
+    NumberSequenceKeypoint.new(0.20, 1),   -- ẩn
+    NumberSequenceKeypoint.new(0.50, 1),   -- ẩn (nửa còn lại của viền)
+    NumberSequenceKeypoint.new(0.54, 0),   -- vùng sáng 2 bắt đầu
+    NumberSequenceKeypoint.new(0.64, 0),   -- vùng sáng 2 kết thúc
+    NumberSequenceKeypoint.new(0.70, 1),   -- ẩn
+    NumberSequenceKeypoint.new(1.00, 1),   -- ẩn (khép vòng)
+})
+
+-- Xoay gradient liên tục quanh viền -> tạo hiệu ứng 2 điểm sáng chạy đuổi nhau,
+-- luôn cùng tốc độ vì cùng nằm trên 1 gradient duy nhất.
+local ROTATE_SPEED = 2 -- giây / 1 vòng quanh viền (chỉnh nhỏ hơn = chạy nhanh hơn)
+
 task.spawn(function()
     while HighlightTab.Parent do
-        tween(HighlightStroke, 0.9, { Transparency = 0.6 }, Enum.EasingStyle.Sine):Play()
-        task.wait(0.9)
-        tween(HighlightStroke, 0.9, { Transparency = 0.1 }, Enum.EasingStyle.Sine):Play()
-        task.wait(0.9)
+        HighlightGradient.Rotation = 0
+        local spin = tween(
+            HighlightGradient,
+            ROTATE_SPEED,
+            { Rotation = 360 },
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.In
+        )
+        spin:Play()
+        spin.Completed:Wait()
     end
 end)
 
@@ -325,7 +349,7 @@ AvatarFrame.ZIndex = 2
 corner(AvatarFrame, 16)
 stroke(AvatarFrame, Theme.Border)
 
---// Player name — 
+--// Player name — truncates to "…" when it doesn't fit the highlight tab's width
 local PlayerNameLabel = Instance.new("TextLabel", HighlightTab)
 PlayerNameLabel.Size = UDim2.new(1, -50, 0, 18)
 PlayerNameLabel.Position = UDim2.new(0, 48, 0, 8)
@@ -522,7 +546,7 @@ local function CreateToggleOption(parent, title, height)
     return Switch
 end
 
--- Simple section header inside a tab
+-- Simple section header inside a tab (for grouping options visually).
 local function CreateSectionLabel(parent, text)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(1, 0, 0, 24)
@@ -535,7 +559,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EX TABS =================
+--// ================= EXAMPLE TABS (replace with real content) =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

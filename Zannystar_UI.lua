@@ -1,6 +1,4 @@
 --// ============================================================
---// Zannystar UI Framework
---// Toggle + Animated Main Window + Tabs + Function List + Player Info
 --// UI language: English (US) only
 --// ============================================================
 

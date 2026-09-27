@@ -32,7 +32,7 @@ local Theme = {
 
 --// ================= CONFIG =================
 local UI_NAME        = "Zannystar"
-local UI_W, UI_H      = 700, 470      -- reduced UI size
+local UI_W, UI_H      = 650, 420      -- reduced UI size
 local TOGGLE_SIZE     = 50
 local POPUP_TIME      = 0.45
 local CLOSE_TIME      = 0.30
@@ -212,6 +212,7 @@ FunctionLayout.SortOrder = Enum.SortOrder.LayoutOrder
 FunctionLayout.Padding = UDim.new(0, 10)
 
 local FunctionPadding = Instance.new("UIPadding", FunctionScroll)
+FunctionPadding.PaddingLeft = UDim.new(0, 6)
 FunctionPadding.PaddingRight = UDim.new(0, 6)
 
 --// Tab column (left) — 8px from UI left, 8px from top/bottom, 10px from function panel.

@@ -484,7 +484,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EXAMPLE TABS (replace with real content) =================
+--// ================= EXAMPLE TABS =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

@@ -27,6 +27,7 @@ local Theme = {
     SubText      = Color3.fromRGB(120, 130, 170),
     Success      = Color3.fromRGB(158, 206, 106),
     Danger       = Color3.fromRGB(247, 118, 142),
+    Neon         = Color3.fromRGB(0, 255, 200),
 }
 
 --// ================= CONFIG =================
@@ -190,11 +191,15 @@ local FunctionPanel = Instance.new("Frame", Body)
 FunctionPanel.Name = "FunctionPanel"
 FunctionPanel.Position = UDim2.new(0, MARGIN_EDGE + TAB_PANEL_WIDTH + MARGIN_GAP, 0, MARGIN_EDGE)
 FunctionPanel.Size = UDim2.new(1, -(MARGIN_EDGE + TAB_PANEL_WIDTH + MARGIN_GAP + MARGIN_EDGE), 1, -(MARGIN_EDGE * 2))
-FunctionPanel.BackgroundTransparency = 1
+FunctionPanel.BackgroundColor3 = Theme.PanelAlt
+FunctionPanel.BorderSizePixel = 0
+corner(FunctionPanel, 8)
+stroke(FunctionPanel, Theme.Border)
 
 local FunctionScroll = Instance.new("ScrollingFrame", FunctionPanel)
 FunctionScroll.Name = "FunctionScroll"
-FunctionScroll.Size = UDim2.new(1, 0, 1, 0)
+FunctionScroll.Size = UDim2.new(1, -8, 1, -8)
+FunctionScroll.Position = UDim2.new(0, 4, 0, 4)
 FunctionScroll.BackgroundTransparency = 1
 FunctionScroll.BorderSizePixel = 0
 FunctionScroll.ScrollBarThickness = 5
@@ -251,13 +256,19 @@ HighlightTab.Size = UDim2.new(1, 0, 0, HIGHLIGHT_HEIGHT)
 HighlightTab.BackgroundColor3 = Theme.Header
 HighlightTab.BorderSizePixel = 0
 corner(HighlightTab, 8)
-stroke(HighlightTab, Theme.Border)
 
-local HighlightAccent = Instance.new("Frame", HighlightTab)
-HighlightAccent.Size = UDim2.new(1, 0, 0, 2)
-HighlightAccent.BackgroundColor3 = Theme.AccentPurple
-HighlightAccent.BorderSizePixel = 0
-HighlightAccent.ZIndex = 2
+local HighlightStroke = stroke(HighlightTab, Theme.Neon, 2)
+HighlightStroke.Transparency = 0.1
+
+-- Neon pulsing glow loop
+task.spawn(function()
+    while HighlightTab.Parent do
+        tween(HighlightStroke, 0.9, { Transparency = 0.6 }, Enum.EasingStyle.Sine):Play()
+        task.wait(0.9)
+        tween(HighlightStroke, 0.9, { Transparency = 0.1 }, Enum.EasingStyle.Sine):Play()
+        task.wait(0.9)
+    end
+end)
 
 local AvatarFrame = Instance.new("ImageLabel", HighlightTab)
 AvatarFrame.Size = UDim2.new(0, 32, 0, 32)

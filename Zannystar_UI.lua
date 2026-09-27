@@ -30,6 +30,7 @@ local Theme = {
     Neon         = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
     ToggleOff    = Color3.fromRGB(71, 48, 112),   -- #473070 toggle OFF track
     ToggleKnob   = Color3.fromRGB(226, 190, 250), -- #E2BEFA toggle knob (off)
+    TabIdle      = Color3.fromRGB(209, 94, 237),  -- hồng-tím nhạt cho tab chưa chọn
 }
 
 --// ================= CONFIG =================
@@ -47,6 +48,10 @@ local TAB_PANEL_WIDTH = 150 -- fixed width of the left tab-list column (also wid
 
 local HIGHLIGHT_HEIGHT = 56 -- height of the pinned player-info highlight tab
 local HIGHLIGHT_GAP     = 8 -- gap between tab list and the highlight tab above it
+
+--// ---- Animated border defaults ----
+local BORDER_ROTATE_SPEED_HIGHLIGHT = 2    -- seconds per revolution for the highlight tab
+local BORDER_ROTATE_SPEED_TAB       = 2.5  -- seconds per revolution for each list tab (slightly slower, less busy)
 
 --// ================= ROOT =================
 local ScreenGui = Instance.new("ScreenGui")
@@ -75,6 +80,44 @@ local function tween(inst, time, props, style, dir)
         TweenInfo.new(time, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out),
         props
     )
+end
+
+-- Adds a UIStroke with a rotating "two comet" gradient (two bright spots chasing
+-- each other around the border, evenly spaced, everything else near-invisible).
+-- Reused for both the pinned player-info highlight tab and each list tab.
+local function addAnimatedBorder(target, color, speed, thickness)
+    local strokeObj = stroke(target, color, thickness or 1.5)
+    strokeObj.Transparency = 0
+
+    local grad = Instance.new("UIGradient", strokeObj)
+    grad.Color = ColorSequence.new(color)
+    grad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0.00, 1),   -- hidden
+        NumberSequenceKeypoint.new(0.04, 0),   -- bright spot 1 starts
+        NumberSequenceKeypoint.new(0.14, 0),   -- bright spot 1 ends
+        NumberSequenceKeypoint.new(0.20, 1),   -- hidden
+        NumberSequenceKeypoint.new(0.50, 1),   -- hidden (other half of the border)
+        NumberSequenceKeypoint.new(0.54, 0),   -- bright spot 2 starts
+        NumberSequenceKeypoint.new(0.64, 0),   -- bright spot 2 ends
+        NumberSequenceKeypoint.new(0.70, 1),   -- hidden
+        NumberSequenceKeypoint.new(1.00, 1),   -- hidden (loop closes)
+    })
+
+    task.spawn(function()
+        while target.Parent do
+            grad.Rotation = 0
+            local spin = tween(
+                grad, speed or 2,
+                { Rotation = 360 },
+                Enum.EasingStyle.Linear,
+                Enum.EasingDirection.In
+            )
+            spin:Play()
+            spin.Completed:Wait()
+        end
+    end)
+
+    return strokeObj, grad
 end
 
 local function makeDraggable(handle, target)
@@ -179,7 +222,7 @@ MainUI.Parent = ScreenGui
 corner(MainUI, 12)
 stroke(MainUI, Theme.Border)
 
---// ---- Top bar with title ----
+--// ---- Top bar (highlighted) with title ----
 local TopBar = Instance.new("Frame", MainUI)
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT)
@@ -224,7 +267,7 @@ CloseBtn.AutoButtonColor = false
 CloseBtn.ZIndex = 2
 corner(CloseBtn, 6)
 
---// ---- Body ----
+--// ---- Body (tab column + function panel) ----
 local Body = Instance.new("Frame", MainUI)
 Body.Name = "Body"
 Body.Size = UDim2.new(1, 0, 1, -TOPBAR_HEIGHT)
@@ -293,7 +336,7 @@ local TabLayout = Instance.new("UIListLayout", TabScroll)
 TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Padding = UDim.new(0, 6)
 
---// Highlight tab 
+--// Highlight tab (pinned below the tab list, same width as the tab list)
 local HighlightTab = Instance.new("Frame", TabColumn)
 HighlightTab.Name = "HighlightTab"
 HighlightTab.AnchorPoint = Vector2.new(0, 1)
@@ -302,19 +345,7 @@ HighlightTab.Size = UDim2.new(1, 0, 0, HIGHLIGHT_HEIGHT)
 HighlightTab.BackgroundColor3 = Theme.Header
 HighlightTab.BorderSizePixel = 0
 corner(HighlightTab, 8)
-
-local HighlightStroke = stroke(HighlightTab, Theme.Neon, 2)
-HighlightStroke.Transparency = 0.1
-
--- Neon pulsing glow loop
-task.spawn(function()
-    while HighlightTab.Parent do
-        tween(HighlightStroke, 0.9, { Transparency = 0.6 }, Enum.EasingStyle.Sine):Play()
-        task.wait(0.9)
-        tween(HighlightStroke, 0.9, { Transparency = 0.1 }, Enum.EasingStyle.Sine):Play()
-        task.wait(0.9)
-    end
-end)
+addAnimatedBorder(HighlightTab, Theme.Neon, BORDER_ROTATE_SPEED_HIGHLIGHT, 2)
 
 local AvatarFrame = Instance.new("ImageLabel", HighlightTab)
 AvatarFrame.Size = UDim2.new(0, 32, 0, 32)
@@ -325,7 +356,7 @@ AvatarFrame.ZIndex = 2
 corner(AvatarFrame, 16)
 stroke(AvatarFrame, Theme.Border)
 
---// Player name — 
+--// Player name — truncates to "…" when it doesn't fit the highlight tab's width
 local PlayerNameLabel = Instance.new("TextLabel", HighlightTab)
 PlayerNameLabel.Size = UDim2.new(1, -50, 0, 18)
 PlayerNameLabel.Position = UDim2.new(0, 48, 0, 8)
@@ -409,7 +440,8 @@ local function selectTab(name)
     for tabName, btn in pairs(TabButtons) do
         local selected = tabName == name
         tween(btn, 0.15, {
-            BackgroundColor3 = selected and Theme.AccentBlue or Theme.Panel,
+            BackgroundColor3 = selected and Theme.AccentBlue or Theme.TabIdle,
+            BackgroundTransparency = selected and 0 or 0.75,
         }):Play()
         btn.TextColor3 = selected and Theme.Background or Theme.Text
     end
@@ -426,7 +458,8 @@ local function CreateTab(name)
     local Btn = Instance.new("TextButton", TabScroll)
     Btn.Name = "Tab_" .. name
     Btn.Size = UDim2.new(1, 0, 0, 34)
-    Btn.BackgroundColor3 = Theme.Panel
+    Btn.BackgroundColor3 = Theme.TabIdle
+    Btn.BackgroundTransparency = 0.75
     Btn.Text = name
     Btn.Font = Enum.Font.GothamBold
     Btn.TextSize = 13
@@ -434,6 +467,7 @@ local function CreateTab(name)
     Btn.AutoButtonColor = false
     Btn.TextWrapped = true
     corner(Btn, 6)
+    addAnimatedBorder(Btn, Theme.AccentBlue, BORDER_ROTATE_SPEED_TAB, 1.2)
     TabButtons[name] = Btn
 
     local Content = Instance.new("Frame", FunctionScroll)
@@ -522,7 +556,7 @@ local function CreateToggleOption(parent, title, height)
     return Switch
 end
 
--- Simple section header inside a tab
+-- Simple section header inside a tab (for grouping options visually).
 local function CreateSectionLabel(parent, text)
     local Label = Instance.new("TextLabel", parent)
     Label.Size = UDim2.new(1, 0, 0, 24)
@@ -535,7 +569,7 @@ local function CreateSectionLabel(parent, text)
     return Label
 end
 
---// ================= EX TABS =================
+--// ================= EXAMPLE TABS (replace with real content) =================
 local MainTab = CreateTab("Main")
 CreateSectionLabel(MainTab, "General Options")
 CreateToggleOption(MainTab, "Example Option 1")

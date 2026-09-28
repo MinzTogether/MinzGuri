@@ -22,35 +22,35 @@ local Theme = {
     PanelAlt     = Color3.fromRGB(37, 25, 66),    -- #251942 bg-sidebar
     Header       = Color3.fromRGB(49, 32, 75),    -- #31204B bg-card-hover
     Border       = Color3.fromRGB(84, 53, 128),   -- #543580 purple border
-    AccentBlue   = Color3.fromRGB(243, 99, 225),  -- #F363E1 pink primary (main accent)
+    AccentBlue   = Color3.fromRGB(243, 99, 225),  -- #F363E1 pink primary
     AccentPurple = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
     Text         = Color3.fromRGB(226, 190, 250), -- #E2BEFA text primary
-    SubText      = Color3.fromRGB(191, 157, 238), -- #BF9DEE text secondary / purple light
+    SubText      = Color3.fromRGB(191, 157, 238), -- #BF9DEE text secondary
     Success      = Color3.fromRGB(158, 206, 106),
     Danger       = Color3.fromRGB(247, 118, 142),
     Neon         = Color3.fromRGB(175, 88, 249),  -- #AF58F9 purple neon
     ToggleOff    = Color3.fromRGB(71, 48, 112),   -- #473070 toggle OFF track
-    ToggleKnob   = Color3.fromRGB(226, 190, 250), -- #E2BEFA toggle knob (off)
+    ToggleKnob   = Color3.fromRGB(226, 190, 250), -- #E2BEFA toggle knob
 }
 
 --// ================= CONFIG =================
 local UI_NAME        = "Elysera"
-local UI_W, UI_H      = 650, 420      -- reduced UI size
+local UI_W, UI_H      = 650, 420
 local TOGGLE_SIZE     = 50
 local POPUP_TIME      = 0.45
 local CLOSE_TIME      = 0.30
 local TOPBAR_HEIGHT   = 40
-local MIN_UI_W, MIN_UI_H = 420, 260 -- minimum size when resizing
+local MIN_UI_W, MIN_UI_H = 420, 260
 local SAVE_FILE       = "Elysera_Settings.json"
-local SAVE_DELAY      = 0.3 -- debounce (seconds) for writing the settings file
+local SAVE_DELAY      = 0.3
 
---// ---- Layout margins (per spec) ----
-local MARGIN_EDGE     = 8   -- tabs/panels <-> top & bottom of UI, tab list <-> UI left, function panel <-> UI right
-local MARGIN_GAP      = 10  -- tab list <-> function panel
-local TAB_PANEL_WIDTH = 150 -- fixed width of the left tab-list column (also width of the highlight tab below it)
+--// ---- Layout margins ----
+local MARGIN_EDGE     = 8
+local MARGIN_GAP      = 10
+local TAB_PANEL_WIDTH = 150
 
-local HIGHLIGHT_HEIGHT = 56 -- height of the pinned player-info highlight tab
-local HIGHLIGHT_GAP     = 8 -- gap between tab list and the highlight tab above it
+local HIGHLIGHT_HEIGHT = 56
+local HIGHLIGHT_GAP     = 8
 
 --// When true, every interactive element except the Resize button ignores
 --// clicks/drags. Set while resize mode is active.
@@ -118,9 +118,6 @@ local function makeDraggable(handle, target, onEnd)
     end)
 end
 
--- Same as makeDraggable, but only fires onClick() when the input ends
--- WITHOUT having moved past `threshold` pixels — a real drag never
--- triggers the click, and a real click never moves the button.
 local function makeDraggableButton(handle, target, onClick, threshold, onEnd)
     threshold = threshold or 5
     local dragging, moved, dragStart, startPos
